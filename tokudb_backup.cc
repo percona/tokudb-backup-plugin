@@ -18,6 +18,7 @@
 #include <sql_acl.h>   // SUPER_ACL
 #include <sql_parse.h> // check_global_access
 #include "backup/backup.h"
+#include <regex.h>
 
 #ifdef TOKUDB_BACKUP_PLUGIN_VERSION
 #define stringify2(x) #x
@@ -40,7 +41,9 @@ static MYSQL_SYSVAR_STR(version, tokudb_backup_version, PLUGIN_VAR_NOCMDARG | PL
 static MYSQL_THDVAR_ULONG(last_error, PLUGIN_VAR_THDLOCAL, "error from the last backup. 0 is success",
                           NULL, NULL, 0 /*default*/, 0 /*min*/, ~0ULL /*max*/, 1 /*blocksize*/);
 
-static MYSQL_THDVAR_STR(last_error_string, PLUGIN_VAR_THDLOCAL | PLUGIN_VAR_MEMALLOC, "error string from the last backup", NULL, NULL, NULL);
+static MYSQL_THDVAR_STR(last_error_string, PLUGIN_VAR_THDLOCAL + PLUGIN_VAR_MEMALLOC, "error string from the last backup", NULL, NULL, NULL);
+
+static MYSQL_THDVAR_STR(exclude, PLUGIN_VAR_THDLOCAL + PLUGIN_VAR_MEMALLOC, "exclude source file regular expression", NULL, NULL, NULL);
 
 static int tokudb_backup_check_dir(THD *thd, struct st_mysql_sys_var *var, void *save, struct st_mysql_value *value);
 static void tokudb_backup_update_dir(THD *thd, struct st_mysql_sys_var *var, void *var_ptr, const void *save);
@@ -66,8 +69,33 @@ static struct st_mysql_sys_var *tokudb_backup_system_variables[] = {
     MYSQL_SYSVAR(dir),
     MYSQL_SYSVAR(last_error),
     MYSQL_SYSVAR(last_error_string),
+    MYSQL_SYSVAR(exclude),
     NULL,
 };
+
+struct tokudb_backup_check_copy_extra {
+    THD *_thd;
+};
+
+static int tokudb_backup_check_copy_fun(const char *source, const char *dest, void *extra) {
+    tokudb_backup_check_copy_extra *check_extra = static_cast<tokudb_backup_check_copy_extra *>(extra);
+    int r = 0;
+    if (1) fprintf(stderr, "%s %s %s\n", __FUNCTION__, source, dest);
+    char *exclude = THDVAR(check_extra->_thd, exclude);
+    if (exclude) {
+        regex_t re;
+        int regr = regcomp(&re, exclude, REG_EXTENDED);
+        if (regr == 0) {
+            regr = regexec(&re, source, 0, NULL, 0);
+            if (regr == 0) {
+                fprintf(stderr, "%s skip %s\n", __FUNCTION__, source);
+                r = 1;
+            }
+            regfree(&re);
+        }
+    }
+    return r;
+}
 
 struct tokudb_backup_progress_extra {
     THD *_thd;
@@ -544,7 +572,11 @@ static void tokudb_backup_run(THD *thd, const char *dest_dir) {
     // do the backup
     tokudb_backup_progress_extra progress_extra = { thd, NULL };
     tokudb_backup_error_extra error_extra = { thd };
-    error = tokubackup_create_backup(source_dirs, dest_dirs, count, tokudb_backup_progress_fun, &progress_extra, tokudb_backup_error_fun, &error_extra);
+    tokudb_backup_check_copy_extra check_copy_extra = { thd };
+    error = tokubackup_create_backup(source_dirs, dest_dirs, count,
+                                     tokudb_backup_progress_fun, &progress_extra,
+                                     tokudb_backup_error_fun, &error_extra,
+                                     tokudb_backup_check_copy_fun, &check_copy_extra);
 
     // cleanup
     thd_proc_info(thd, "tokudb backup done"); // must be a static string
