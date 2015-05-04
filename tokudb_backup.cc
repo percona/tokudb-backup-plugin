@@ -73,22 +73,22 @@ static struct st_mysql_sys_var *tokudb_backup_system_variables[] = {
     NULL,
 };
 
-struct tokudb_backup_check_copy_extra {
+struct tokudb_backup_exclude_copy_extra {
     THD *_thd;
 };
 
-static int tokudb_backup_check_copy_fun(const char *source, const char *dest, void *extra) {
-    tokudb_backup_check_copy_extra *check_extra = static_cast<tokudb_backup_check_copy_extra *>(extra);
+static int tokudb_backup_exclude_copy_fun(const char *source_file, void *extra) {
+    tokudb_backup_exclude_copy_extra *check_extra = static_cast<tokudb_backup_exclude_copy_extra *>(extra);
     int r = 0;
-    if (1) fprintf(stderr, "%s %s %s\n", __FUNCTION__, source, dest);
+    if (0) fprintf(stderr, "%s %s\n", __FUNCTION__, source_file);
     char *exclude = THDVAR(check_extra->_thd, exclude);
     if (exclude) {
         regex_t re;
         int regr = regcomp(&re, exclude, REG_EXTENDED);
         if (regr == 0) {
-            regr = regexec(&re, source, 0, NULL, 0);
+            regr = regexec(&re, source_file, 0, NULL, 0);
             if (regr == 0) {
-                fprintf(stderr, "%s skip %s\n", __FUNCTION__, source);
+                if (1) fprintf(stderr, "%s skip %s\n", __FUNCTION__, source_file);
                 r = 1;
             }
             regfree(&re);
@@ -572,11 +572,11 @@ static void tokudb_backup_run(THD *thd, const char *dest_dir) {
     // do the backup
     tokudb_backup_progress_extra progress_extra = { thd, NULL };
     tokudb_backup_error_extra error_extra = { thd };
-    tokudb_backup_check_copy_extra check_copy_extra = { thd };
+    tokudb_backup_exclude_copy_extra exclude_copy_extra = { thd };
     error = tokubackup_create_backup(source_dirs, dest_dirs, count,
                                      tokudb_backup_progress_fun, &progress_extra,
                                      tokudb_backup_error_fun, &error_extra,
-                                     tokudb_backup_check_copy_fun, &check_copy_extra);
+                                     tokudb_backup_exclude_copy_fun, &exclude_copy_extra);
 
     // cleanup
     thd_proc_info(thd, "tokudb backup done"); // must be a static string
