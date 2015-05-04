@@ -75,23 +75,19 @@ static struct st_mysql_sys_var *tokudb_backup_system_variables[] = {
 
 struct tokudb_backup_exclude_copy_extra {
     THD *_thd;
+    char *exclude_string;
+    regex_t *re;
 };
 
 static int tokudb_backup_exclude_copy_fun(const char *source_file, void *extra) {
-    tokudb_backup_exclude_copy_extra *check_extra = static_cast<tokudb_backup_exclude_copy_extra *>(extra);
+    tokudb_backup_exclude_copy_extra *exclude_extra = static_cast<tokudb_backup_exclude_copy_extra *>(extra);
     int r = 0;
     if (0) fprintf(stderr, "%s %s\n", __FUNCTION__, source_file);
-    char *exclude = THDVAR(check_extra->_thd, exclude);
-    if (exclude) {
-        regex_t re;
-        int regr = regcomp(&re, exclude, REG_EXTENDED);
+    if (exclude_extra->exclude_string) {
+        int regr = regexec(exclude_extra->re, source_file, 0, NULL, 0);
         if (regr == 0) {
-            regr = regexec(&re, source_file, 0, NULL, 0);
-            if (regr == 0) {
-                if (1) fprintf(stderr, "%s skip %s\n", __FUNCTION__, source_file);
-                r = 1;
-            }
-            regfree(&re);
+            if (1) fprintf(stderr, "tokudb backup exclude %s\n", source_file);
+            r = 1;
         }
     }
     return r;
@@ -559,6 +555,19 @@ static void tokudb_backup_run(THD *thd, const char *dest_dir) {
         return;
     }
 
+    char *exclude_string = THDVAR(thd, exclude);
+    regex_t exclude_re;
+    if (exclude_string) {
+        int regr = regcomp(&exclude_re, exclude_string, REG_EXTENDED);
+        if (regr) {
+            error = EINVAL;
+            char reg_error[100+strlen(exclude_string)];
+            snprintf(reg_error, sizeof reg_error, "tokudb backup exclude %s regcomp %d", exclude_string, regr);
+            tokudb_backup_set_error(thd, error, reg_error);
+            return;
+        }
+    }
+
     const char *source_dirs[MYSQL_MAX_DIR_COUNT] = {};
     const char *dest_dirs[MYSQL_MAX_DIR_COUNT] = {};
     int count = sources.set_valid_dirs_and_get_count(source_dirs, MYSQL_MAX_DIR_COUNT);
@@ -572,11 +581,14 @@ static void tokudb_backup_run(THD *thd, const char *dest_dir) {
     // do the backup
     tokudb_backup_progress_extra progress_extra = { thd, NULL };
     tokudb_backup_error_extra error_extra = { thd };
-    tokudb_backup_exclude_copy_extra exclude_copy_extra = { thd };
+    tokudb_backup_exclude_copy_extra exclude_copy_extra = { thd, exclude_string, &exclude_re };
     error = tokubackup_create_backup(source_dirs, dest_dirs, count,
                                      tokudb_backup_progress_fun, &progress_extra,
                                      tokudb_backup_error_fun, &error_extra,
                                      tokudb_backup_exclude_copy_fun, &exclude_copy_extra);
+
+    if (exclude_string)
+        regfree(&exclude_re);
 
     // cleanup
     thd_proc_info(thd, "tokudb backup done"); // must be a static string
