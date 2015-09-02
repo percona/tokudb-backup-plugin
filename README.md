@@ -1,12 +1,12 @@
 The Percona TokuBackup library intercepts system calls that write files and duplicates the writes on backup files. It does this while copying files to the backup directory.
 
-The following technical issues must be addressed to get hot backup working with MySQL:
+The following technical issues must be addressed to get Percona TokuBackup working with MySQL:
 
-* The hot backup library must be loaded into the mysqld server so that it can intercept system calls.  We use LD_PRELOAD to solve the system call intercept problem.  Alternatively, the hot backup library can be linked into mysqld.
+* The TokuBackup library must be loaded into the mysqld server so that it can intercept system calls.  We use LD_PRELOAD to solve the system call intercept problem.  Alternatively, the hot backup library can be linked into mysqld.
 
 * There must be a user interface that can be used to start a backup, track its progress, and determine whether or not the backup succeeded.  We use a plugin that kicks off a backup as a side effect of setting a backup session variable to the name of the destination directory.
 
-# Installing the hot backup libraries
+# Installing the Percona TokuBackup libraries
 
 1 Extract the tarball
 
@@ -19,13 +19,13 @@ The following technical issues must be addressed to get hot backup working with 
 scripts/mysql_install_db
 ```
 
-5 Run mysqld with the hot backup library (should exist in the lib directory)
+5 Run mysqld with the TokuBackup library (should exist in the lib directory)
 ```
 LD_PRELOAD=PATH_TO_MYSQL_BASE_DIR/lib/libHotBackup.so mysqld_safe
 ```
-NOTE: The preload is NOT necessary for MySQL and MariaDB builds from Percona since we link the hot backup library into mysqld already.
+NOTE: The preload is NOT necessary for MySQL and MariaDB builds from Percona since we link the TokuBackup library into mysqld already.
 
-6 Install the backup plugin (should exist in the MySQL plugin directory)
+6 Install the TokuBackup plugin (should exist in the MySQL plugin directory)
 ```
 install plugin tokudb_backup soname 'tokudb_backup.so';
 ````
@@ -67,14 +67,14 @@ The ```tokudb_backup_throttle``` variable imposes an upper bound on the write ra
 * readonly:true
 * scope:system
 * type:str
-* comment:version of the tokudb backup plugin
+* comment:version of the TokuBackup plugin
 
 ## tokudb_backup_version
 * name:tokudb_backup_version
 * readonly:true
 * scope:system
 * type:str
-* comment:version of the tokutek backup library
+* comment:version of the TokuBackup library
 
 ## tokudb_backup_allowed_prefix
 * name:tokudb_backup_allowed_prefix
@@ -124,7 +124,7 @@ The ```tokudb_backup_throttle``` variable imposes an upper bound on the write ra
 * type:str
 * comment:exclude source file regular expression
 
-# Building the hot backup plugin from source
+# Building the Percona TokuBackup plugin from source
 
 1 Checkout the Percona Server source with tag Percona-Server-5.6.23-72.1
 ```
@@ -133,7 +133,7 @@ git checkout Percona-Server-5.6.23-72.1
 mkdir percona-server-build
 ```
 
-2 Checkout the tokudb backup plugin with tag 'tokudb-backup-0.17'
+2 Checkout the TokuBackup plugin with tag 'tokudb-backup-0.17'
 ```
 cd percona-server/plugin
 git clone git@github.com:Tokutek/tokudb-backup-plugin
