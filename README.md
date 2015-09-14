@@ -14,18 +14,13 @@ The following technical issues must be addressed to get Percona TokuBackup worki
 
 3 Copy libHotBackup.so to MySQL's lib directory
 
-4 Init mysqld
-```
-scripts/mysql_install_db
-```
-
-5 Run mysqld with the TokuBackup library (should exist in the lib directory)
+4 Run mysqld with the TokuBackup library (should exist in the lib directory)
 ```
 LD_PRELOAD=PATH_TO_MYSQL_BASE_DIR/lib/libHotBackup.so mysqld_safe
 ```
 NOTE: The preload is NOT necessary for MySQL and MariaDB builds from Percona since we link the TokuBackup library into mysqld already.
 
-6 Install the TokuBackup plugin (should exist in the MySQL plugin directory)
+5 Install the TokuBackup plugin (should exist in the MySQL plugin directory)
 ```
 install plugin tokudb_backup soname 'tokudb_backup.so';
 ````
