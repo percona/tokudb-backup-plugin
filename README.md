@@ -121,41 +121,4 @@ The ```tokudb_backup_throttle``` variable imposes an upper bound on the write ra
 
 # Building the Percona TokuBackup plugin from source
 
-1 Checkout the Percona Server source with tag Percona-Server-5.6.23-72.1
-```
-git clone -b 5.6 git@github.com/percona/percona-server
-git checkout Percona-Server-5.6.23-72.1
-mkdir percona-server-build
-```
-
-2 Checkout the TokuBackup plugin with tag 'tokudb-backup-0.17'
-```
-cd percona-server/plugin
-git clone git@github.com:Tokutek/tokudb-backup-plugin
-pushd tokudb-backup-plugin
-git checkout tokudb-backup-0.17
-popd
-```
-
-3 Checkout the hot backup library with tag 'tokudb-backup-0.17'
-```
-cd percona-server/plugin/tokudb-backup-plugin
-git clone git@github.com:Tokutek/backup-enterprise
-ln -s backup-enterprise/backup backup
-pushd backup-enterprise
-git checkout tokudb-backup-0.17
-popd
-```
-
-4 Build
-```
-cd percona-server-build
-cmake -DBUILD_CONFIG=mysql_release -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=../tokudb-backup-0.17-percona-server-5.6.23 -DTOKUDB_BACKUP_PLUGIN_VERSION=tokudb-backup-0.17 ../percona-server
-cd plugin/tokudb-backup-plugin
-make -j8 install
-```
-
-5 Make tarball
-```
-tar czf tokudb-backup-0.17-percona-server-5.6.23.tar.gz tokudb-backup-0.17-percona-server-5.6.23
-```
+TokuBackup is now part of Percona Server. For information about building Percona Server, refer to the corresponding documentation at https://www.percona.com/doc/percona-server/5.6/installation.html#compiling-percona-server-from-source.
